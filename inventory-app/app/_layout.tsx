@@ -1,5 +1,9 @@
-import { Slot } from 'expo-router';
+import { ReactNode } from 'react';
 
-export default function Layout() {
-  return <Slot />;
+interface LayoutProps {
+  children?: ReactNode;
+}
+
+export default function Layout({ children }: LayoutProps) {
+  return <>{children}</>;
 }
