@@ -1,9 +1,12 @@
-import { ReactNode } from 'react';
+import { Stack } from 'expo-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-interface LayoutProps {
-  children?: ReactNode;
-}
+const queryClient = new QueryClient();
 
-export default function Layout({ children }: LayoutProps) {
-  return <>{children}</>;
+export default function RootLayout() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Stack screenOptions={{ headerShown: false }} />
+    </QueryClientProvider>
+  );
 }

@@ -12,7 +12,7 @@ export async function getInventorySummary() {
     .from('products')
     .select('id, name, stock_quantity, price')
     .order('updated_at', { ascending: false })
-    .limit(10);
+    .limit(100);
 
   return { data: data as InventoryItem[] | null, error };
 }
