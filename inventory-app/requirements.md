@@ -64,14 +64,9 @@ barcode
 metadata
 created_at
 updated_at
-Inventory Transactions Table
 
-Already created.
-
-Purpose:
-
-Maintain a complete audit trail of all stock movements.
-
+Inventory Transactions Table Already created.
+Purpose: Maintain a complete audit trail of all stock movements.
 Typical transaction types:
 
 RECEIPT
@@ -80,23 +75,21 @@ RETURN
 DAMAGE
 EXPIRED
 ADJUSTMENT
+
 User Roles
+
 Warehouse User
-
 Permissions:
-
 Login
 Scan products
 View products
 Stock In
 Stock Out
 View transaction history
+
 Administrator
-
 Uses the existing Admin Dashboard.
-
 Responsibilities:
-
 Create products
 Edit products
 Upload images

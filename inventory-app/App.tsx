@@ -12,6 +12,7 @@ import {
 import { getSession, signIn, signOut } from './services/auth';
 import { useAuthStore } from './store/authStore';
 import { getInventorySummary } from './services/inventory';
+import { Slot } from 'expo-router';
 
 export default function App() {
   const { user, session, loading, setSession, clearSession, setLoading } = useAuthStore();
@@ -117,42 +118,9 @@ export default function App() {
   }
 
   return (
-    <View style={styles.dashboardContainer}>
+    <View style={{ flex: 1 }}>
       <StatusBar style="auto" />
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>{user?.email ?? 'Warehouse user'}</Text>
-        </View>
-        <Pressable style={styles.secondaryButton} onPress={handleLogout} disabled={authLoading}>
-          <Text style={styles.secondaryButtonText}>Logout</Text>
-        </Pressable>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Inventory snapshot</Text>
-        <Text style={styles.metric}>{summary?.count ?? 0} products tracked</Text>
-        <Text style={styles.metricMuted}>{summary?.lowStock ?? 0} products low on stock</Text>
-      </View>
-
-      <View style={styles.grid}>
-        <View style={styles.tile}>
-          <Text style={styles.tileTitle}>Scan Product</Text>
-          <Text style={styles.tileText}>Open barcode scanning from the next sprint.</Text>
-        </View>
-        <View style={styles.tile}>
-          <Text style={styles.tileTitle}>Stock In</Text>
-          <Text style={styles.tileText}>Prepare stock updates for the next sprint.</Text>
-        </View>
-        <View style={styles.tile}>
-          <Text style={styles.tileTitle}>Stock Out</Text>
-          <Text style={styles.tileText}>Review outbound activity and reasons.</Text>
-        </View>
-        <View style={styles.tile}>
-          <Text style={styles.tileTitle}>History</Text>
-          <Text style={styles.tileText}>Keep a real audit trail of moves.</Text>
-        </View>
-      </View>
+      <Slot />
     </View>
   );
 }
@@ -201,80 +169,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontWeight: '600',
-  },
-  dashboardContainer: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    padding: 24,
-    paddingTop: 48,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  secondaryButton: {
-    backgroundColor: '#e2e8f0',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  secondaryButtonText: {
-    color: '#0f172a',
-    fontWeight: '600',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 8,
-  },
-  metric: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2563eb',
-  },
-  metricMuted: {
-    marginTop: 4,
-    color: '#64748b',
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  tile: {
-    width: '48%',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  tileTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 4,
-  },
-  tileText: {
-    color: '#64748b',
-    fontSize: 12,
-    lineHeight: 18,
   },
   loadingText: {
     marginTop: 12,
