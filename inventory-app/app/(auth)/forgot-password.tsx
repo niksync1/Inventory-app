@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   StatusBar,
@@ -10,38 +9,30 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { authService } from '../../services/AuthService';
-import { useAuthStore } from '../../store/authStore';
 
-export default function LoginScreen() {
-  const { setSession } = useAuthStore();
+export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  async function handleLogin() {
-    if (!email || !password) {
-      Alert.alert('Validation', 'Please enter your email and password.');
+  function handleReset() {
+    if (!email) {
+      Alert.alert('Validation', 'Please enter your email address.');
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const data = await authService.signIn({ email, password });
-      setSession(data.session);
-      router.replace('/(tabs)');
-    } catch (error: any) {
-      Alert.alert('Login failed', error.message);
-    } finally {
-      setLoading(false);
-    }
+    Alert.alert(
+      'Password Reset',
+      'If an account with that email exists, a reset link has been sent.',
+      [{ text: 'OK', onPress: () => router.back() }]
+    );
   }
 
   return (
     <View style={styles.container}>
       <StatusBar />
-      <Text style={styles.title}>Inventory App</Text>
+      <Text style={styles.title}>Reset Password</Text>
+      <Text style={styles.subtitle}>
+        Enter your email address and we'll send you a reset link.
+      </Text>
 
       <TextInput
         value={email}
@@ -52,24 +43,12 @@ export default function LoginScreen() {
         style={styles.input}
       />
 
-      <TextInput
-        value={password}
-        onChangeText={setPassword}
-        placeholder="Password"
-        secureTextEntry
-        style={styles.input}
-      />
-
-      <Pressable style={styles.button} onPress={handleLogin} disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Sign In</Text>
-        )}
+      <Pressable style={styles.button} onPress={handleReset}>
+        <Text style={styles.buttonText}>Send Reset Link</Text>
       </Pressable>
 
-      <Pressable onPress={() => router.push('/(auth)/forgot-password')}>
-        <Text style={styles.link}>Forgot password?</Text>
+      <Pressable onPress={() => router.back()}>
+        <Text style={styles.link}>Back to Login</Text>
       </Pressable>
     </View>
   );
@@ -86,6 +65,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: '#0f172a',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#475569',
     marginBottom: 24,
   },
   input: {

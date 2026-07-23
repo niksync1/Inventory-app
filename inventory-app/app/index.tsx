@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,32 +9,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Redirect, router } from 'expo-router';
-import { getSession, signIn } from '../services/auth';
+import { authService } from '../services/AuthService';
 import { useAuthStore } from '../store/authStore';
 
 export default function Index() {
-  const { session, loading, setSession, setLoading } = useAuthStore();
+  const { setSession } = useAuthStore();
   const [email, setEmail] = useState('demo@example.com');
   const [password, setPassword] = useState('password123');
   const [authLoading, setAuthLoading] = useState(false);
-
-  useEffect(() => {
-    async function bootstrap() {
-      setLoading(true);
-      const { data, error } = await getSession();
-
-      if (error) {
-        console.warn(error.message);
-        setLoading(false);
-        return;
-      }
-
-      setSession(data.session);
-    }
-
-    bootstrap();
-  }, [setLoading, setSession]);
 
   async function handleLogin() {
     if (!email || !password) {
@@ -43,36 +25,21 @@ export default function Index() {
     }
 
     setAuthLoading(true);
-    const { data, error } = await signIn(email, password);
-    setAuthLoading(false);
 
-    if (error) {
+    try {
+      const data = await authService.signIn({ email, password });
+      setSession(data.session);
+    } catch (error: any) {
       Alert.alert('Login failed', error.message);
-      return;
+    } finally {
+      setAuthLoading(false);
     }
-
-    setSession(data.session);
-    router.replace('/(tabs)');
-  }
-
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>Preparing inventory workspace...</Text>
-      </View>
-    );
-  }
-
-  if (session?.user) {
-    return <Redirect href="/(tabs)" />;
   }
 
   return (
     <View style={styles.container}>
       <StatusBar />
       <Text style={styles.title}>Inventory App</Text>
-      <Text style={styles.subtitle}>Sprint 1 • Authentication & Dashboard</Text>
 
       <TextInput
         value={email}
@@ -105,22 +72,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
   },
-  centered: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: '#0f172a',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#64748b',
     marginBottom: 24,
   },
   input: {
@@ -142,9 +97,5 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontWeight: '600',
-  },
-  loadingText: {
-    marginTop: 12,
-    color: '#475569',
   },
 });

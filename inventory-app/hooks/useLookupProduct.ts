@@ -1,11 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
-import { productService } from "../services/productService";
+import { productService } from "../services/ProductService";
 
 export function useLookupProduct() {
   return useMutation({
     mutationKey: ["lookup-product"],
     mutationFn: async (barcode: string) => {
-      return productService.getByBarcode(barcode);
+      return productService.lookupByBarcode(barcode);
     },
   });
 }

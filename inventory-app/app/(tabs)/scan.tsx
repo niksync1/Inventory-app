@@ -1,14 +1,25 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import BarcodeScanner from "../../components/BarcodeScanner";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useLookupProduct } from "../../hooks/useLookupProduct";
+import { useScannerStore } from "../../store/scannerStore";
 
 export default function ScanScreen() {
   const [isScanning, setIsScanning] = useState(true);
   const [status, setStatus] = useState<"idle" | "not-found" | "error">("idle");
   const [lastBarcode, setLastBarcode] = useState<string | null>(null);
   const lookup = useLookupProduct();
+
+  // Reset scanner every time this screen gains focus
+  // (e.g. when navigating back from product detail).
+  useFocusEffect(
+    useCallback(() => {
+      setIsScanning(true);
+      setStatus("idle");
+      setLastBarcode(null);
+    }, [])
+  );
 
   async function handleBarcode(barcode: string) {
     if (!barcode) {

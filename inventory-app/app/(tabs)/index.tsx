@@ -1,44 +1,20 @@
-import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { signOut } from '../../services/auth';
 import { useAuthStore } from '../../store/authStore';
-import { getInventorySummary } from '../../services/inventory';
+import { useInventorySummary } from '../../hooks/useInventory';
+import { useLogout } from '../../hooks/useAuth';
 
 export default function TabsIndex() {
-  const { user, clearSession } = useAuthStore();
-  const [summary, setSummary] = useState<{ count: number; lowStock: number } | null>(null);
-  const [authLoading, setAuthLoading] = useState(false);
-
-  useEffect(() => {
-    async function loadSummary() {
-      const inventory = await getInventorySummary();
-      if (!inventory.error && inventory.data) {
-        const lowStock = inventory.data.filter((item) => Number(item.stock_quantity) <= 5).length;
-        setSummary({ count: inventory.data.length, lowStock });
-      }
-    }
-
-    loadSummary();
-  }, []);
+  const { user } = useAuthStore();
+  const { data: summary, isLoading } = useInventorySummary();
+  const logout = useLogout();
 
   async function handleLogout() {
-    if (authLoading) {
-      return;
-    }
-
-    setAuthLoading(true);
-
     try {
-      const { error } = await signOut();
-      if (error) {
-        console.warn('Logout warning:', error.message);
-      }
+      await logout.mutateAsync();
     } catch (error) {
       console.warn('Logout error:', error);
     } finally {
-      clearSession();
-      setAuthLoading(false);
       router.replace('/');
     }
   }
@@ -50,15 +26,27 @@ export default function TabsIndex() {
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>{user?.email ?? 'Warehouse user'}</Text>
         </View>
-        <Pressable style={[styles.secondaryButton, authLoading && styles.secondaryButtonDisabled]} onPress={handleLogout} disabled={authLoading}>
-          <Text style={styles.secondaryButtonText}>{authLoading ? 'Signing out...' : 'Logout'}</Text>
+        <Pressable
+          style={[styles.secondaryButton, logout.isPending && styles.secondaryButtonDisabled]}
+          onPress={handleLogout}
+          disabled={logout.isPending}
+        >
+          <Text style={styles.secondaryButtonText}>
+            {logout.isPending ? 'Signing out...' : 'Logout'}
+          </Text>
         </Pressable>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Inventory snapshot</Text>
-        <Text style={styles.metric}>{summary?.count ?? 0} products tracked</Text>
-        <Text style={styles.metricMuted}>{summary?.lowStock ?? 0} products low on stock</Text>
+        {isLoading ? (
+          <Text style={styles.metric}>Loading...</Text>
+        ) : (
+          <>
+            <Text style={styles.metric}>{summary?.count ?? 0} products tracked</Text>
+            <Text style={styles.metricMuted}>{summary?.lowStock ?? 0} products low on stock</Text>
+          </>
+        )}
       </View>
 
       <View style={styles.grid}>
@@ -66,18 +54,18 @@ export default function TabsIndex() {
           <Text style={styles.tileTitle}>Scan Product</Text>
           <Text style={styles.tileText}>Use the scanner to capture barcodes.</Text>
         </Pressable>
-        <View style={styles.tile}>
+        <Pressable style={styles.tile} onPress={() => router.push('/inventory/receive')}>
           <Text style={styles.tileTitle}>Stock In</Text>
-          <Text style={styles.tileText}>Prepare stock updates for the next sprint.</Text>
-        </View>
-        <View style={styles.tile}>
+          <Text style={styles.tileText}>Receive new inventory items.</Text>
+        </Pressable>
+        <Pressable style={styles.tile} onPress={() => router.push('/inventory/adjustments')}>
           <Text style={styles.tileTitle}>Stock Out</Text>
-          <Text style={styles.tileText}>Review outbound activity and reasons.</Text>
-        </View>
-        <View style={styles.tile}>
+          <Text style={styles.tileText}>Record outbound stock movements.</Text>
+        </Pressable>
+        <Pressable style={styles.tile} onPress={() => router.push('/(tabs)/history')}>
           <Text style={styles.tileTitle}>History</Text>
-          <Text style={styles.tileText}>Keep a real audit trail of moves.</Text>
-        </View>
+          <Text style={styles.tileText}>View inventory transaction history.</Text>
+        </Pressable>
       </View>
     </View>
   );

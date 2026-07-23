@@ -1,7 +1,9 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useProduct } from "../../hooks/useProduct";
+import ProductImage from "../../components/ProductImage";
+import Header from "../../components/Header";
 
 export default function ProductDetailScreen() {
   const router = useRouter();
@@ -56,13 +58,11 @@ export default function ProductDetailScreen() {
         <Text style={styles.backButtonText}>← Back</Text>
       </Pressable>
 
-      {product.images?.[0] ? (
-        <Image source={{ uri: product.images[0] }} style={styles.image} />
-      ) : (
-        <View style={styles.imagePlaceholder}>
-          <Text style={styles.imagePlaceholderText}>No image available</Text>
-        </View>
-      )}
+      <ProductImage
+        images={product.images}
+        size="lg"
+        resizeMode="cover"
+      />
 
       <Text style={styles.title}>{product.name}</Text>
       <Text style={styles.subtitle}>{product.description ?? "No description available."}</Text>
@@ -74,7 +74,7 @@ export default function ProductDetailScreen() {
 
       <View style={styles.infoCard}>
         <Text style={styles.infoLabel}>Price</Text>
-        <Text style={styles.infoValue}>${product.price.toFixed(2)}</Text>
+        <Text style={styles.infoValue}>GHS {product.price.toFixed(2)}</Text>
       </View>
 
       <View style={styles.infoCard}>
@@ -105,26 +105,6 @@ const styles = StyleSheet.create({
     color: "#2563eb",
     fontSize: 16,
     fontWeight: "600",
-  },
-  image: {
-    width: "100%",
-    height: 220,
-    borderRadius: 16,
-    marginBottom: 16,
-    backgroundColor: "#e2e8f0",
-  },
-  imagePlaceholder: {
-    width: "100%",
-    height: 220,
-    borderRadius: 16,
-    marginBottom: 16,
-    backgroundColor: "#e2e8f0",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  imagePlaceholderText: {
-    color: "#64748b",
-    fontSize: 14,
   },
   title: {
     fontSize: 24,
