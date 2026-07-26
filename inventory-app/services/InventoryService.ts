@@ -1,6 +1,4 @@
 import { inventoryRepository } from "../repositories/InventoryRepository";
-import { productRepository } from "../repositories/ProductRepository";
-import { transactionRepository } from "../repositories/TransactionRepository";
 import { InventoryItem, InventorySummary, TransactionType } from "../types/inventory";
 import { LOW_STOCK_THRESHOLD } from "../utils/constants";
 import { isReasonableQuantity } from "../utils/validation";
@@ -30,21 +28,8 @@ export class InventoryService {
       throw new Error("Invalid quantity. Must be a positive integer.");
     }
 
-    const product = await productRepository.findById(productId);
-
-    if (!product) {
-      throw new Error("Product not found.");
-    }
-
-    const newQuantity = Number(product.stock_quantity) + quantity;
-
-    await productRepository.updateStock(productId, newQuantity);
-    await transactionRepository.create({
-      product_id: productId,
-      quantity,
-      transaction_type: "RECEIPT" as TransactionType,
-      remarks,
-    });
+    // RPC handles: validate product exists, update stock, insert transaction (atomic)
+    await inventoryRepository.stockIn(productId, quantity, remarks);
   }
 
   async stockOut(
@@ -70,29 +55,9 @@ export class InventoryService {
       );
     }
 
-    const product = await productRepository.findById(productId);
-
-    if (!product) {
-      throw new Error("Product not found.");
-    }
-
-    const currentStock = Number(product.stock_quantity);
-
-    if (currentStock < quantity) {
-      throw new Error(
-        `Insufficient stock. Available: ${currentStock}, requested: ${quantity}`
-      );
-    }
-
-    const newQuantity = currentStock - quantity;
-
-    await productRepository.updateStock(productId, newQuantity);
-    await transactionRepository.create({
-      product_id: productId,
-      quantity: -quantity,
-      transaction_type: reason,
-      remarks,
-    });
+    // RPC handles: validate product exists, check stock sufficiency,
+    // update stock, insert transaction (atomic)
+    await inventoryRepository.stockOut(productId, quantity, reason, remarks);
   }
 }
 

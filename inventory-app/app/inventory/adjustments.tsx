@@ -3,15 +3,32 @@ import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-nativ
 import { router } from 'expo-router';
 import Header from '../../components/Header';
 import Screen from '../../components/Screen';
+import { inventoryService } from '../../services/InventoryService';
+import { productService } from '../../services/ProductService';
+import type { Product } from '../../types/product';
 
 const REASONS = ['DAMAGE', 'EXPIRED', 'ADJUSTMENT', 'SALE'] as const;
 
 export default function AdjustmentsScreen() {
   const [barcode, setBarcode] = useState('');
+  const [product, setProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState<string>('');
   const [remarks, setRemarks] = useState('');
   const [loading, setLoading] = useState(false);
+
+  async function lookupProduct(barcodeValue: string) {
+    if (!barcodeValue) {
+      setProduct(null);
+      return;
+    }
+    try {
+      const found = await productService.lookupByBarcode(barcodeValue);
+      setProduct(found);
+    } catch {
+      setProduct(null);
+    }
+  }
 
   async function handleStockOut() {
     if (!barcode || !quantity || !reason) {
@@ -25,9 +42,30 @@ export default function AdjustmentsScreen() {
       return;
     }
 
+    // Look up product if we don't have one yet
+    let targetProduct = product;
+    if (!targetProduct) {
+      try {
+        targetProduct = await productService.lookupByBarcode(barcode);
+      } catch {
+        // ignored, handled below
+      }
+      if (!targetProduct) {
+        Alert.alert('Product Not Found', `No product found with barcode: "${barcode}"`);
+        return;
+      }
+      setProduct(targetProduct);
+    }
+
     setLoading(true);
 
     try {
+      await inventoryService.stockOut(
+        targetProduct.id,
+        qty,
+        reason as any,
+        remarks || undefined,
+      );
       Alert.alert('Success', `Stock out: ${qty} units (${reason}).`);
       router.back();
     } catch (error: any) {
@@ -46,7 +84,10 @@ export default function AdjustmentsScreen() {
           style={styles.input}
           placeholder="Scan or enter barcode"
           value={barcode}
-          onChangeText={setBarcode}
+          onChangeText={(val) => {
+            setBarcode(val);
+            lookupProduct(val);
+          }}
         />
 
         <Text style={styles.label}>Quantity</Text>

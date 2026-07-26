@@ -62,17 +62,6 @@ export class ProductRepository {
 
     return (data ?? []) as Product[];
   }
-
-  async updateStock(id: string, quantity: number): Promise<void> {
-    const { error } = await supabase
-      .from("products")
-      .update({ stock_quantity: quantity, updated_at: new Date().toISOString() })
-      .eq("id", id);
-
-    if (error) {
-      throw error;
-    }
-  }
 }
 
 export const productRepository = new ProductRepository();

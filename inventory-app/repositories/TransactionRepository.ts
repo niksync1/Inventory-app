@@ -1,29 +1,7 @@
 import { supabase } from "../lib/supabase";
-import {
-  InventoryTransaction,
-  CreateTransactionInput,
-} from "../types/transaction";
+import { InventoryTransaction } from "../types/transaction";
 
 export class TransactionRepository {
-  async create(input: CreateTransactionInput): Promise<InventoryTransaction> {
-    const { data, error } = await supabase
-      .from("inventory_transactions")
-      .insert({
-        product_id: input.product_id,
-        quantity: input.quantity,
-        transaction_type: input.transaction_type,
-        remarks: input.remarks ?? null,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    return data as InventoryTransaction;
-  }
-
   async findByProduct(
     productId: string,
     limit = 50
