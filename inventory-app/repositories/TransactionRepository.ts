@@ -8,7 +8,19 @@ export class TransactionRepository {
   ): Promise<InventoryTransaction[]> {
     const { data, error } = await supabase
       .from("inventory_transactions")
-      .select("*")
+      .select(`
+        *,
+        products:product_id (
+          id,
+          name,
+          barcode
+        ),
+        profiles:created_by (
+          id,
+          email,
+          name
+        )
+      `)
       .eq("product_id", productId)
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -23,7 +35,19 @@ export class TransactionRepository {
   async findMany(limit = 50, offset = 0): Promise<InventoryTransaction[]> {
     const { data, error } = await supabase
       .from("inventory_transactions")
-      .select("*")
+      .select(`
+        *,
+        products:product_id (
+          id,
+          name,
+          barcode
+        ),
+        profiles:created_by (
+          id,
+          email,
+          name
+        )
+      `)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 

@@ -9,6 +9,7 @@ export default function ScanScreen() {
   const [isScanning, setIsScanning] = useState(true);
   const [status, setStatus] = useState<"idle" | "not-found" | "error">("idle");
   const [lastBarcode, setLastBarcode] = useState<string | null>(null);
+  const [scanKey, setScanKey] = useState(0);
   const lookup = useLookupProduct();
 
   // Reset scanner every time this screen gains focus
@@ -18,6 +19,7 @@ export default function ScanScreen() {
       setIsScanning(true);
       setStatus("idle");
       setLastBarcode(null);
+      setScanKey((k) => k + 1);
     }, [])
   );
 
@@ -58,6 +60,7 @@ export default function ScanScreen() {
   return (
     <View style={{ flex: 1 }}>
       <BarcodeScanner
+        key={scanKey}
         isEnabled={isScanning}
         onBarcodeScanned={handleBarcode}
       />

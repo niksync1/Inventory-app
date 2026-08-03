@@ -9,6 +9,16 @@ export interface InventoryTransaction {
   created_by: string;
   created_at: string;
   updated_at: string;
+  products?: {
+    id: string;
+    name: string;
+    barcode?: string | null;
+  } | null;
+  profiles?: {
+    id: string;
+    email: string;
+    name?: string | null;
+  } | null;
 }
 
 export interface CreateTransactionInput {

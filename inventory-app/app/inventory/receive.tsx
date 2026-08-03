@@ -15,6 +15,7 @@ export default function ReceiveScreen() {
   const [remarks, setRemarks] = useState('');
   const [loading, setLoading] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
+  const [scanKey, setScanKey] = useState(0);
 
   async function lookupProduct(barcodeValue: string) {
     if (!barcodeValue) {
@@ -89,7 +90,10 @@ export default function ReceiveScreen() {
           />
           <Pressable
             style={styles.scanButton}
-            onPress={() => setScannerVisible(true)}
+            onPress={() => {
+              setScanKey((k) => k + 1);
+              setScannerVisible(true);
+            }}
           >
             <Text style={styles.scanButtonText}>Scan</Text>
           </Pressable>
@@ -131,6 +135,7 @@ export default function ReceiveScreen() {
       >
         <View style={styles.scannerContainer}>
           <BarcodeScanner
+            key={scanKey}
             onBarcodeScanned={async (data) => {
               try {
                 const found = await productService.lookupByBarcode(data);
