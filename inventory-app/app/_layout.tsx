@@ -13,12 +13,18 @@ export default function RootLayout() {
   // Bootstrap: check for existing session on app launch
   useEffect(() => {
     async function bootstrap() {
-      const { session: existingSession, error } = await authService.getSession();
+      try {
+        const { session: existingSession, error } = await authService.getSession();
 
-      if (!error) {
-        setSession(existingSession);
-      } else {
-        console.warn(error.message);
+        if (!error) {
+          setSession(existingSession);
+        } else {
+          console.warn(error.message);
+          setLoading(false);
+        }
+      } catch (err) {
+        // Prevent unhandled promise rejection (would show a dismissable red box)
+        console.warn("Failed to restore session:", err);
         setLoading(false);
       }
     }

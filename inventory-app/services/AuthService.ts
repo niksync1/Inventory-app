@@ -25,8 +25,13 @@ export class AuthService {
   }
 
   async getSession() {
-    const { data, error } = await supabase.auth.getSession();
-    return { session: data.session, error };
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      return { session: data.session, error };
+    } catch (err) {
+      // Never throw — always return a clean result so callers can handle the error.
+      return { session: null, error: err as Error };
+    }
   }
 
   async getUser() {
