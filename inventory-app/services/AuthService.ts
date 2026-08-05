@@ -55,6 +55,26 @@ export class AuthService {
 
     return userRepository.getProfile(user.id);
   }
+
+  async resetPassword(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: "inventory-app://reset-password",
+    });
+
+    if (error) {
+      throw error;
+    }
+  }
+
+  async updatePassword(newPassword: string) {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      throw error;
+    }
+  }
 }
 
 export const authService = new AuthService();

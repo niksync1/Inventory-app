@@ -11,23 +11,41 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { authService } from '../../services/AuthService';
+import { useAuthStore } from '../../store/authStore';
 
-export default function ForgotPasswordScreen() {
-  const [email, setEmail] = useState('');
+export default function ResetPasswordScreen() {
+  const { setSession } = useAuthStore();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
 
-  async function handleReset() {
-    if (!email) {
-      Alert.alert('Validation', 'Please enter your email address.');
+  async function handleUpdate() {
+    if (!password || !confirmPassword) {
+      Alert.alert('Validation', 'Please enter and confirm your new password.');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Validation', 'Password must be at least 6 characters.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert('Validation', 'Passwords do not match.');
       return;
     }
 
     setLoading(true);
 
     try {
-      await authService.resetPassword(email);
-      setSent(true);
+      await authService.updatePassword(password);
+      await authService.signOut();
+      setSession(null);
+      Alert.alert(
+        'Password updated',
+        'Your password has been changed. Please sign in with your new password.',
+        [{ text: 'OK', onPress: () => router.replace('/') }]
+      );
     } catch (error: any) {
       Alert.alert('Password reset failed', error.message);
     } finally {
@@ -35,49 +53,39 @@ export default function ForgotPasswordScreen() {
     }
   }
 
-  if (sent) {
-    return (
-      <View style={styles.container}>
-        <StatusBar />
-        <Text style={styles.title}>Check your email</Text>
-        <Text style={styles.subtitle}>
-          If an account exists for {email}, a reset link has been sent. Please
-          follow the instructions in the email to choose a new password.
-        </Text>
-
-        <Pressable style={styles.button} onPress={() => router.replace('/')}>
-          <Text style={styles.buttonText}>Back to Login</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <StatusBar />
-      <Text style={styles.title}>Reset Password</Text>
+      <Text style={styles.title}>Set New Password</Text>
       <Text style={styles.subtitle}>
-        Enter your email address and we'll send you a reset link.
+        Enter a new password for your account.
       </Text>
 
       <TextInput
-        value={email}
-        onChangeText={setEmail}
-        placeholder="Email"
-        autoCapitalize="none"
-        keyboardType="email-address"
+        value={password}
+        onChangeText={setPassword}
+        placeholder="New password"
+        secureTextEntry
         style={styles.input}
       />
 
-      <Pressable style={styles.button} onPress={handleReset} disabled={loading}>
+      <TextInput
+        value={confirmPassword}
+        onChangeText={setConfirmPassword}
+        placeholder="Confirm new password"
+        secureTextEntry
+        style={styles.input}
+      />
+
+      <Pressable style={styles.button} onPress={handleUpdate} disabled={loading}>
         {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.buttonText}>Send Reset Link</Text>
+          <Text style={styles.buttonText}>Update Password</Text>
         )}
       </Pressable>
 
-      <Pressable onPress={() => router.back()}>
+      <Pressable onPress={() => router.replace('/')}>
         <Text style={styles.link}>Back to Login</Text>
       </Pressable>
     </View>

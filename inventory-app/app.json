@@ -19,6 +19,7 @@
       }
     },
     "android": {
+      "package": "com.elevehealthwatch.inventoryapp",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -32,6 +33,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b06b250c-c039-43bb-9a67-a6d1e57c5edb"
+      }
     }
   }
 }
