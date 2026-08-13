@@ -1,5 +1,6 @@
-import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
-import { ActivityIndicator, Button, StyleSheet, Text, View } from "react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { ActivityIndicator, Button, StyleSheet, Text, Vibration, View } from "react-native";
+import { useSettingsStore } from "../store/settingsStore";
 
 type Props = {
   onBarcodeScanned: (barcode: string) => void;
@@ -11,6 +12,14 @@ export default function BarcodeScanner({
   isEnabled = true,
 }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
+  const { vibrationEnabled } = useSettingsStore();
+
+  function handleBarcodeScanned(data: string) {
+    if (vibrationEnabled) {
+      Vibration.vibrate(100);
+    }
+    onBarcodeScanned(data);
+  }
 
   if (!permission) {
     return (
@@ -52,7 +61,7 @@ export default function BarcodeScanner({
       }}
       onBarcodeScanned={
         isEnabled
-          ? ({ data }) => onBarcodeScanned(data)
+          ? ({ data }) => handleBarcodeScanned(data)
           : undefined
       }
     />

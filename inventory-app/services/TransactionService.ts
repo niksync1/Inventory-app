@@ -1,9 +1,12 @@
-import { transactionRepository } from "../repositories/TransactionRepository";
+import { transactionRepository, TransactionFilter } from "../repositories/TransactionRepository";
 import { InventoryTransaction } from "../types/transaction";
 
 export class TransactionService {
-  async getRecentTransactions(limit = 50): Promise<InventoryTransaction[]> {
-    return transactionRepository.findMany(limit);
+  async getRecentTransactions(
+    limit = 50,
+    filter: TransactionFilter = {}
+  ): Promise<InventoryTransaction[]> {
+    return transactionRepository.findMany(limit, 0, filter);
   }
 
   async getTransactionsByProduct(

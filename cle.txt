@@ -1,0 +1,3 @@
+- Keystore: `inventory-app\inventory-release.keystore`
+
+- Password: `T3mp1234!` (alias: `inventory-app`)

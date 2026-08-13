@@ -40,3 +40,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# signing credentials
+inventory-release.keystore
+android/keystore.properties

@@ -62,6 +62,10 @@ export default function TabsIndex() {
           <Text style={styles.tileTitle}>Stock Out</Text>
           <Text style={styles.tileText}>Record outbound stock movements.</Text>
         </Pressable>
+        <Pressable style={styles.tile} onPress={() => router.push('/inventory/search')}>
+          <Text style={styles.tileTitle}>Search</Text>
+          <Text style={styles.tileText}>Search products by name, barcode, or category.</Text>
+        </Pressable>
         <Pressable style={styles.tile} onPress={() => router.push('/(tabs)/history')}>
           <Text style={styles.tileTitle}>History</Text>
           <Text style={styles.tileText}>View inventory transaction history.</Text>

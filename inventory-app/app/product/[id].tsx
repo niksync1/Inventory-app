@@ -1,9 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useProduct } from "../../hooks/useProduct";
 import ProductImage from "../../components/ProductImage";
-import Header from "../../components/Header";
 
 export default function ProductDetailScreen() {
   const router = useRouter();
@@ -53,7 +52,7 @@ export default function ProductDetailScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Pressable style={styles.backButton} onPress={handleBack}>
         <Text style={styles.backButtonText}>← Back</Text>
       </Pressable>
@@ -73,23 +72,58 @@ export default function ProductDetailScreen() {
       </View>
 
       <View style={styles.infoCard}>
+        <Text style={styles.infoLabel}>Category</Text>
+        <Text style={styles.infoValue}>{product.category ?? "Uncategorized"}</Text>
+      </View>
+
+      <View style={styles.infoCard}>
         <Text style={styles.infoLabel}>Price</Text>
         <Text style={styles.infoValue}>GHS {product.price.toFixed(2)}</Text>
       </View>
 
       <View style={styles.infoCard}>
         <Text style={styles.infoLabel}>Stock</Text>
-        <Text style={styles.infoValue}>{product.stock_quantity}</Text>
+        <Text style={[styles.infoValue, product.stock_quantity <= 5 && styles.stockLow]}>
+          {product.stock_quantity}
+        </Text>
       </View>
-    </View>
+
+      <View style={styles.actionsRow}>
+        <Pressable
+          style={[styles.actionButton, styles.stockInButton]}
+          onPress={() =>
+            router.push({
+              pathname: "/product/stock-in",
+              params: { id: product.id },
+            })
+          }
+        >
+          <Text style={styles.actionButtonText}>Stock In</Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.actionButton, styles.stockOutButton]}
+          onPress={() =>
+            router.push({
+              pathname: "/product/stock-out",
+              params: { id: product.id },
+            })
+          }
+        >
+          <Text style={styles.actionButtonText}>Stock Out</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
     backgroundColor: "#f8fafc",
+  },
+  contentContainer: {
+    padding: 24,
   },
   centered: {
     flex: 1,
@@ -136,6 +170,31 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     marginTop: 4,
     fontWeight: "600",
+  },
+  stockLow: {
+    color: "#dc2626",
+  },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 8,
+  },
+  actionButton: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  stockInButton: {
+    backgroundColor: "#16a34a",
+  },
+  stockOutButton: {
+    backgroundColor: "#dc2626",
+  },
+  actionButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
   },
   button: {
     backgroundColor: "#2563eb",

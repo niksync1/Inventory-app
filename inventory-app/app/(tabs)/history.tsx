@@ -1,15 +1,50 @@
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Header from "../../components/Header";
 import Loading from "../../components/Loading";
 import EmptyState from "../../components/EmptyState";
 import { useRecentTransactions } from "../../hooks/useTransactions";
 import { InventoryTransaction } from "../../types/transaction";
+import { TransactionType } from "../../types/inventory";
 import { TRANSACTION_TYPE_LABELS } from "../../utils/constants";
+import { TransactionFilter } from "../../repositories/TransactionRepository";
+
+const FILTER_TYPES: TransactionType[] = [
+  "RECEIPT",
+  "SALE",
+  "RETURN",
+  "DAMAGE",
+  "EXPIRED",
+  "ADJUSTMENT",
+];
 
 export default function HistoryScreen() {
+  const [filter, setFilter] = useState<TransactionFilter>({});
+  const [filterOpen, setFilterOpen] = useState(false);
+
   const { data: transactions, isLoading, isError, error, refetch, isRefetching } =
-    useRecentTransactions(50);
+    useRecentTransactions(50, filter);
+
+  function handleTypeSelect(type: TransactionType) {
+    setFilter((prev) => ({
+      ...prev,
+      type: prev.type === type ? undefined : type,
+    }));
+  }
+
+  function handleClearFilters() {
+    setFilter({});
+  }
+
+  const hasActiveFilters = Object.keys(filter).length > 0;
 
   if (isLoading) {
     return <Loading message="Loading transaction history..." />;
@@ -18,6 +53,54 @@ export default function HistoryScreen() {
   return (
     <View style={styles.container}>
       <Header title="History" />
+
+      {/* Filter Bar */}
+      <View style={styles.filterBar}>
+        <Pressable
+          style={[styles.filterToggle, filterOpen && styles.filterToggleActive]}
+          onPress={() => setFilterOpen((open) => !open)}
+        >
+          <Ionicons
+            name="funnel-outline"
+            size={18}
+            color={filterOpen ? "#fff" : "#2563eb"}
+          />
+          <Text
+            style={[styles.filterToggleText, filterOpen && styles.filterToggleTextActive]}
+          >
+            Filters
+          </Text>
+          {hasActiveFilters ? <View style={styles.filterDot} /> : null}
+        </Pressable>
+
+        {hasActiveFilters ? (
+          <Pressable style={styles.clearButton} onPress={handleClearFilters}>
+            <Text style={styles.clearButtonText}>Clear</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      {/* Expanded Filters */}
+      {filterOpen ? (
+        <View style={styles.filterPanel}>
+          <Text style={styles.filterLabel}>Transaction Type</Text>
+          <View style={styles.chipRow}>
+            {FILTER_TYPES.map((type) => (
+              <Pressable
+                key={type}
+                style={[styles.chip, filter.type === type && styles.chipActive]}
+                onPress={() => handleTypeSelect(type)}
+              >
+                <Text
+                  style={[styles.chipText, filter.type === type && styles.chipTextActive]}
+                >
+                  {TRANSACTION_TYPE_LABELS[type] ?? type}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       {isError ? (
         <View style={styles.centered}>
@@ -46,7 +129,11 @@ export default function HistoryScreen() {
             <EmptyState
               icon="time-outline"
               title="No transactions yet"
-              message="Stock movements will appear here once inventory is updated."
+              message={
+                hasActiveFilters
+                  ? "No transactions match the current filters."
+                  : "Stock movements will appear here once inventory is updated."
+              }
             />
           }
           renderItem={({ item }) => <TransactionCard transaction={item} />}
@@ -241,5 +328,93 @@ const styles = StyleSheet.create({
     color: "#475569",
     fontSize: 13,
     lineHeight: 18,
+  },
+  filterBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  filterToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#eff6ff",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+  },
+  filterToggleActive: {
+    backgroundColor: "#2563eb",
+    borderColor: "#2563eb",
+  },
+  filterToggleText: {
+    color: "#2563eb",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  filterToggleTextActive: {
+    color: "#fff",
+  },
+  filterDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#ef4444",
+    marginLeft: 2,
+  },
+  clearButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  clearButtonText: {
+    color: "#ef4444",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  filterPanel: {
+    backgroundColor: "#fff",
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  filterLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  chipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: "#f1f5f9",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  chipActive: {
+    backgroundColor: "#2563eb",
+    borderColor: "#2563eb",
+  },
+  chipText: {
+    color: "#475569",
+    fontWeight: "600",
+    fontSize: 13,
+  },
+  chipTextActive: {
+    color: "#fff",
   },
 });
