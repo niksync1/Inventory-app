@@ -4,13 +4,22 @@ import * as Linking from "expo-linking";
 import { supabase } from "../lib/supabase";
 import { useAuthStore } from "../store/authStore";
 import { authService } from "../services/AuthService";
+import { notificationService } from "../services/NotificationService";
 import QueryProvider from "../providers/QueryProvider";
 import AuthProvider from "../providers/AuthProvider";
+import OfflineProvider from "../providers/OfflineProvider";
 
 export default function RootLayout() {
   const { session, loading, setSession, setLoading } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+
+  // Request local-notification permission once at startup (best-effort).
+  useEffect(() => {
+    notificationService.requestPermissions().catch(() => {
+      // Notifications are optional; swallow permission errors.
+    });
+  }, []);
 
   // Process a password-recovery deep link (inventory-app://reset-password#access_token=...&refresh_token=...)
   // detectSessionInUrl is false, so Supabase won't pick up the tokens automatically —
@@ -131,7 +140,9 @@ export default function RootLayout() {
   return (
     <QueryProvider>
       <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <OfflineProvider>
+          <Stack screenOptions={{ headerShown: false }} />
+        </OfflineProvider>
       </AuthProvider>
     </QueryProvider>
   );

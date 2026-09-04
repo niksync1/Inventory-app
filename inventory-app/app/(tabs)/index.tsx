@@ -1,13 +1,28 @@
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/authStore';
-import { useInventorySummary } from '../../hooks/useInventory';
+import { useOfflineStore } from '../../store/offlineStore';
+import { useInventorySummary, useLowStockItems } from '../../hooks/useInventory';
 import { useLogout } from '../../hooks/useAuth';
+import { syncService } from '../../services/SyncService';
+import { notificationService } from '../../services/NotificationService';
 
 export default function TabsIndex() {
   const { user } = useAuthStore();
   const { data: summary, isLoading } = useInventorySummary();
+  const { data: lowStockItems } = useLowStockItems();
   const logout = useLogout();
+  const { isOnline, isInitialized, pendingCount, syncing, syncError } =
+    useOfflineStore();
+
+  // Fire low-stock local notifications for newly-crossed products (once).
+  useEffect(() => {
+    if (lowStockItems && lowStockItems.length > 0) {
+      void notificationService.notifyLowStockIfChanged(lowStockItems);
+    }
+  }, [lowStockItems]);
 
   async function handleLogout() {
     try {
@@ -17,6 +32,10 @@ export default function TabsIndex() {
     } finally {
       router.replace('/');
     }
+  }
+
+  async function handleSync() {
+    await syncService.syncQueuedOperations();
   }
 
   return (
@@ -36,6 +55,33 @@ export default function TabsIndex() {
           </Text>
         </Pressable>
       </View>
+
+      {isInitialized ? (
+        <View style={[styles.syncBanner, isOnline ? styles.syncOnline : styles.syncOffline]}>
+          <Ionicons
+            name={isOnline ? 'cloud-done-outline' : 'cloud-offline-outline'}
+            size={18}
+            color={isOnline ? '#16a34a' : '#dc2626'}
+          />
+          <Text style={[styles.syncText, !isOnline && styles.syncTextOffline]}>
+            {!isOnline
+              ? 'You are offline. Stock changes are queued.'
+              : pendingCount > 0
+              ? `${pendingCount} queued change(s) waiting to sync`
+              : syncing
+              ? 'Syncing...'
+              : 'Online — up to date'}
+          </Text>
+          {pendingCount > 0 && !syncing ? (
+            <Pressable style={styles.syncNowButton} onPress={handleSync}>
+              <Text style={styles.syncNowText}>Sync now</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      {syncError ? (
+        <Text style={styles.syncErrorText}>Sync failed: {syncError}</Text>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Inventory snapshot</Text>
@@ -65,6 +111,10 @@ export default function TabsIndex() {
         <Pressable style={styles.tile} onPress={() => router.push('/inventory/search')}>
           <Text style={styles.tileTitle}>Search</Text>
           <Text style={styles.tileText}>Search products by name, barcode, or category.</Text>
+        </Pressable>
+        <Pressable style={styles.tile} onPress={() => router.push('/(tabs)/reports')}>
+          <Text style={styles.tileTitle}>Reports</Text>
+          <Text style={styles.tileText}>View inventory value and stock activity.</Text>
         </Pressable>
         <Pressable style={styles.tile} onPress={() => router.push('/(tabs)/history')}>
           <Text style={styles.tileTitle}>History</Text>
@@ -162,5 +212,48 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 12,
     lineHeight: 18,
+  },
+  syncBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  syncOnline: {
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  syncOffline: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  syncText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#065f46',
+    fontWeight: '600',
+  },
+  syncTextOffline: {
+    color: '#991b1b',
+  },
+  syncNowButton: {
+    backgroundColor: '#2563eb',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  syncNowText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  syncErrorText: {
+    color: '#dc2626',
+    fontSize: 13,
+    marginBottom: 12,
   },
 });

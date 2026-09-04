@@ -1,7 +1,13 @@
 import { inventoryRepository } from "../repositories/InventoryRepository";
+import { offlineRepository } from "../repositories/OfflineRepository";
+import { useOfflineStore } from "../store/offlineStore";
+import { getIsOnline } from "../lib/network";
+import { PendingOperation } from "../types/offline";
+import { generateId } from "../utils/id";
 import { InventoryItem, InventorySummary, TransactionType } from "../types/inventory";
 import { LOW_STOCK_THRESHOLD } from "../utils/constants";
 import { isReasonableQuantity } from "../utils/validation";
+import { notificationService } from "./NotificationService";
 
 export class InventoryService {
   async getSummary(): Promise<InventorySummary> {
@@ -28,8 +34,26 @@ export class InventoryService {
       throw new Error("Invalid quantity. Must be a positive integer.");
     }
 
+    if (!(await getIsOnline())) {
+      await this.enqueue({
+        id: generateId("op"),
+        type: "STOCK_IN",
+        productId,
+        quantity,
+        remarks,
+        createdAt: new Date().toISOString(),
+        retryCount: 0,
+      });
+      return;
+    }
+
     // RPC handles: validate product exists, update stock, insert transaction (atomic)
     await inventoryRepository.stockIn(productId, quantity, remarks);
+
+    void notificationService.presentLocalNotification(
+      "Stock received",
+      `${quantity} unit(s) added to stock.`
+    );
   }
 
   async stockOut(
@@ -55,9 +79,42 @@ export class InventoryService {
       );
     }
 
+    if (!(await getIsOnline())) {
+      await this.enqueue({
+        id: generateId("op"),
+        type: "STOCK_OUT",
+        productId,
+        quantity,
+        transactionType: reason,
+        remarks,
+        createdAt: new Date().toISOString(),
+        retryCount: 0,
+      });
+      return;
+    }
+
     // RPC handles: validate product exists, check stock sufficiency,
     // update stock, insert transaction (atomic)
     await inventoryRepository.stockOut(productId, quantity, reason, remarks);
+
+    void notificationService.presentLocalNotification(
+      "Stock removed",
+      `${quantity} unit(s) removed (${reason}).`
+    );
+  }
+
+  /** Queue an operation for offline sync and update the pending counter. */
+  private async enqueue(op: PendingOperation): Promise<void> {
+    await offlineRepository.add(op);
+    const all = await offlineRepository.getAll();
+    useOfflineStore.getState().setPendingCount(all.length);
+
+    void notificationService.presentLocalNotification(
+      "Offline — queued for sync",
+      op.type === "STOCK_IN"
+        ? `${op.quantity} unit(s) stock-in queued. Will sync when back online.`
+        : `${op.quantity} unit(s) stock-out queued. Will sync when back online.`
+    );
   }
 }
 
