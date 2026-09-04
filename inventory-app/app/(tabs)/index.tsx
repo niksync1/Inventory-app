@@ -14,8 +14,14 @@ export default function TabsIndex() {
   const { data: summary, isLoading } = useInventorySummary();
   const { data: lowStockItems } = useLowStockItems();
   const logout = useLogout();
-  const { isOnline, isInitialized, pendingCount, syncing, syncError } =
-    useOfflineStore();
+  const {
+    isOnline,
+    isInitialized,
+    pendingCount,
+    failedCount,
+    syncing,
+    syncError,
+  } = useOfflineStore();
 
   // Fire low-stock local notifications for newly-crossed products (once).
   useEffect(() => {
@@ -37,6 +43,16 @@ export default function TabsIndex() {
   async function handleSync() {
     await syncService.syncQueuedOperations();
   }
+
+  const syncMessage = !isOnline
+    ? 'You are offline. Stock changes are queued for your account.'
+    : syncing
+    ? 'Syncing...'
+    : pendingCount > 0
+    ? `${pendingCount} queued change(s) waiting to sync`
+    : failedCount > 0
+    ? `${failedCount} failed offline change(s) retained for review`
+    : 'Online — up to date';
 
   return (
     <View style={styles.container}>
@@ -64,13 +80,7 @@ export default function TabsIndex() {
             color={isOnline ? '#16a34a' : '#dc2626'}
           />
           <Text style={[styles.syncText, !isOnline && styles.syncTextOffline]}>
-            {!isOnline
-              ? 'You are offline. Stock changes are queued.'
-              : pendingCount > 0
-              ? `${pendingCount} queued change(s) waiting to sync`
-              : syncing
-              ? 'Syncing...'
-              : 'Online — up to date'}
+            {syncMessage}
           </Text>
           {pendingCount > 0 && !syncing ? (
             <Pressable style={styles.syncNowButton} onPress={handleSync}>
@@ -80,7 +90,7 @@ export default function TabsIndex() {
         </View>
       ) : null}
       {syncError ? (
-        <Text style={styles.syncErrorText}>Sync failed: {syncError}</Text>
+        <Text style={styles.syncErrorText}>Sync notice: {syncError}</Text>
       ) : null}
 
       <View style={styles.card}>
