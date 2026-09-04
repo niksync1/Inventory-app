@@ -55,7 +55,7 @@ AS $$
 $$;
 
 -- Idempotency key used by mobile/offline clients. NULL preserves compatibility
--- with older callers while new clients should always provide an operation id.
+-- with historical transactions while current callers provide an operation id.
 ALTER TABLE public.inventory_transactions
   ADD COLUMN IF NOT EXISTS operation_id TEXT;
 
@@ -63,8 +63,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS inventory_transactions_operation_id_uidx
   ON public.inventory_transactions (operation_id)
   WHERE operation_id IS NOT NULL;
 
+-- PostgreSQL identifies functions by name + argument types. Adding a defaulted
+-- parameter would otherwise create an overload and leave the legacy SECURITY
+-- DEFINER RPC callable. Remove the old signatures before creating hardened RPCs.
+DROP FUNCTION IF EXISTS public.stock_in(UUID, INT, TEXT);
+DROP FUNCTION IF EXISTS public.stock_out(UUID, INT, TEXT, TEXT);
+
 -- Atomic, authorized and idempotent stock-in.
-CREATE OR REPLACE FUNCTION public.stock_in(
+CREATE FUNCTION public.stock_in(
   p_product_id UUID,
   p_quantity INT,
   p_remarks TEXT DEFAULT NULL,
@@ -103,7 +109,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Atomic, authorized and idempotent stock-out. The conditional UPDATE prevents
 -- concurrent callers from both spending the same available stock.
-CREATE OR REPLACE FUNCTION public.stock_out(
+CREATE FUNCTION public.stock_out(
   p_product_id UUID,
   p_quantity INT,
   p_transaction_type TEXT,
