@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useProduct } from "../../hooks/useProduct";
+import { useOfflineStore } from "../../store/offlineStore";
 import ProductImage from "../../components/ProductImage";
 
 export default function ProductDetailScreen() {
@@ -9,6 +10,7 @@ export default function ProductDetailScreen() {
   const queryClient = useQueryClient();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { data: product, isLoading, isError } = useProduct(id ?? "");
+  const isOnline = useOfflineStore((state) => state.isOnline);
 
   function handleBack() {
     queryClient.removeQueries({ queryKey: ["product", id] });
@@ -82,10 +84,17 @@ export default function ProductDetailScreen() {
       </View>
 
       <View style={styles.infoCard}>
-        <Text style={styles.infoLabel}>Stock</Text>
+        <Text style={styles.infoLabel}>
+          {isOnline ? "Stock" : "Stock (last synced)"}
+        </Text>
         <Text style={[styles.infoValue, product.stock_quantity <= 5 && styles.stockLow]}>
           {product.stock_quantity}
         </Text>
+        {!isOnline ? (
+          <Text style={styles.cacheNote}>
+            Offline snapshot. Queued stock changes are not included in this figure.
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.actionsRow}>
@@ -170,6 +179,12 @@ const styles = StyleSheet.create({
     color: "#0f172a",
     marginTop: 4,
     fontWeight: "600",
+  },
+  cacheNote: {
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#92400e",
   },
   stockLow: {
     color: "#dc2626",
