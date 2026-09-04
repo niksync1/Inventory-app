@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef } from "react";
 import NetInfo from "@react-native-community/netinfo";
 import { useOfflineStore } from "../store/offlineStore";
+import { useAuthStore } from "../store/authStore";
 import { syncService } from "../services/SyncService";
 
 interface Props {
@@ -8,21 +9,32 @@ interface Props {
 }
 
 /**
- * Monitors network state and drives the offline sync pipeline:
- * - Tracks isOnline / isInitialized in the offline store.
- * - Loads the pending-operation count at startup.
- * - Replays queued operations whenever the device returns online.
+ * Monitors network state and drives the offline sync pipeline for the active
+ * authenticated user only.
  */
 export default function OfflineProvider({ children }: Props) {
+  const userId = useAuthStore((state) => state.user?.id ?? null);
   const wasOnline = useRef<boolean | null>(null);
 
   useEffect(() => {
     let mounted = true;
+    wasOnline.current = null;
 
     const init = async () => {
-      await syncService.refreshPendingCount();
-      if (mounted) {
-        useOfflineStore.getState().setIsInitialized(true);
+      try {
+        await syncService.refreshPendingCount();
+      } catch (err) {
+        useOfflineStore
+          .getState()
+          .setSyncError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load offline operation state."
+          );
+      } finally {
+        if (mounted) {
+          useOfflineStore.getState().setIsInitialized(true);
+        }
       }
     };
 
@@ -36,8 +48,10 @@ export default function OfflineProvider({ children }: Props) {
 
       useOfflineStore.getState().setIsOnline(online);
 
-      // Transitioning from offline -> online: replay queued operations.
-      if (wasOnline.current === false && online) {
+      const firstOnlineSnapshot = wasOnline.current === null && online;
+      const reconnected = wasOnline.current === false && online;
+
+      if (userId && (firstOnlineSnapshot || reconnected)) {
         void syncService.syncQueuedOperations();
       }
 
@@ -48,7 +62,7 @@ export default function OfflineProvider({ children }: Props) {
       mounted = false;
       unsubscribe();
     };
-  }, []);
+  }, [userId]);
 
   return <>{children}</>;
 }
