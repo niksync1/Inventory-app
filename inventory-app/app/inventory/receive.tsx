@@ -5,7 +5,7 @@ import BarcodeScanner from '../../components/BarcodeScanner';
 import Header from '../../components/Header';
 import Screen from '../../components/Screen';
 import { inventoryService } from '../../services/InventoryService';
-import { productService } from '../../services/ProductService';
+import { productService } from '../../services/productService';
 import type { Product } from '../../types/product';
 
 export default function ReceiveScreen() {
@@ -42,13 +42,11 @@ export default function ReceiveScreen() {
       return;
     }
 
-    // Look up product if we don't have one yet
     let targetProduct = product;
     if (!targetProduct) {
       try {
         targetProduct = await productService.lookupByBarcode(barcode);
       } catch {
-        // ignored, handled below
       }
       if (!targetProduct) {
         Alert.alert('Product Not Found', `No product found with barcode: "${barcode}"`);
