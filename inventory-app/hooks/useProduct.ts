@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { productService } from "../services/ProductService";
+import { productService } from "../services/productService";
 import { STALE_TIMES } from "../utils/constants";
 
 export function useProduct(id: string | undefined) {
