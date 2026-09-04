@@ -7,16 +7,13 @@ export class ProductRepository {
       .from("products")
       .select("*")
       .eq("barcode", barcode)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      if (error.code === "PGRST116") {
-        return null;
-      }
       throw error;
     }
 
-    return data as Product;
+    return data as Product | null;
   }
 
   async findById(id: string): Promise<Product | null> {
@@ -24,13 +21,13 @@ export class ProductRepository {
       .from("products")
       .select("*")
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      return null;
+      throw error;
     }
 
-    return data as Product;
+    return data as Product | null;
   }
 
   async findMany(limit = 100, offset = 0): Promise<Product[]> {
