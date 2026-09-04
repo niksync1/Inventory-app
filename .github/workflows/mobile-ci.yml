@@ -31,8 +31,19 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies for validation
-        run: npm install --no-package-lock
+      - name: Regenerate package lock
+        run: npm install --package-lock-only
+
+      - name: Verify clean install
+        run: npm ci
 
       - name: TypeScript check
         run: npm run typecheck
+
+      - name: Upload regenerated lockfile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regenerated-package-lock
+          path: inventory-app/package-lock.json
+          if-no-files-found: error
