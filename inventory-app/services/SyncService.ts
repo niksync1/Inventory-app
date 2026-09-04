@@ -14,16 +14,11 @@ export class SyncService {
     useOfflineStore.getState().setPendingCount(ops.length);
   }
 
-  /**
-   * Replay every queued operation in FIFO order against Supabase.
-   * Returns the number of operations successfully synced.
-   */
+  /** Replay queued operations in FIFO order against Supabase. */
   async syncQueuedOperations(): Promise<number> {
     const store = useOfflineStore.getState();
 
-    if (store.syncing) {
-      return 0;
-    }
+    if (store.syncing) return 0;
 
     const online = await getIsOnline();
     if (!online) {
@@ -33,7 +28,6 @@ export class SyncService {
 
     store.setSyncing(true);
     store.setSyncError(null);
-
     let synced = 0;
 
     try {
@@ -46,12 +40,9 @@ export class SyncService {
           await offlineRepository.remove(op.id);
           synced += 1;
         } else if (outcome === "permanent") {
-          // Validation/insufficient-stock style failures: retries won't help, so
-          // drop the operation to avoid a stuck queue.
           console.warn("Dropping permanent-failure operation:", op.id);
           await offlineRepository.remove(op.id);
         }
-        // "retryable" → leave the operation queued for a future sync pass.
       }
 
       const remaining = await offlineRepository.getAll();
@@ -78,13 +69,6 @@ export class SyncService {
     }
   }
 
-  /**
-   * Attempt to replay a single operation.
-   * Returns:
-   * - "synced" when the operation was applied successfully,
-   * - "retryable" when it failed transiently but retries remain (stays queued),
-   * - "permanent" when retries are exhausted or the failure is likely permanent.
-   */
   private async replayOne(
     op: PendingOperation
   ): Promise<"synced" | "retryable" | "permanent"> {
@@ -93,29 +77,27 @@ export class SyncService {
         await inventoryRepository.stockIn(
           op.productId,
           op.quantity,
-          op.remarks
+          op.remarks,
+          op.id
         );
       } else {
         await inventoryRepository.stockOut(
           op.productId,
           op.quantity,
           op.transactionType ?? "ADJUSTMENT",
-          op.remarks
+          op.remarks,
+          op.id
         );
       }
       return "synced";
     } catch (err) {
       const nextRetry = op.retryCount + 1;
 
-      // Retry transient failures up to MAX_RETRIES; treat as permanent after.
       if (nextRetry <= MAX_RETRIES) {
         try {
-          await offlineRepository.update({
-            ...op,
-            retryCount: nextRetry,
-          });
+          await offlineRepository.update({ ...op, retryCount: nextRetry });
         } catch {
-          // Ignore persistence failure; the op stays queued as-is.
+          // The original operation remains queued if persistence fails.
         }
         return "retryable";
       }
