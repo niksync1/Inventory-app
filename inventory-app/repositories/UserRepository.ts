@@ -7,13 +7,13 @@ export class UserRepository {
       .from("profiles")
       .select("*")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
-      return null;
+      throw error;
     }
 
-    return data as UserProfile;
+    return data as UserProfile | null;
   }
 
   async updateProfile(
