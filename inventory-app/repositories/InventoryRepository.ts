@@ -33,12 +33,14 @@ export class InventoryRepository {
   async stockIn(
     productId: string,
     quantity: number,
-    remarks?: string
+    remarks?: string,
+    operationId?: string
   ): Promise<void> {
     const { error } = await supabase.rpc("stock_in", {
       p_product_id: productId,
       p_quantity: quantity,
       p_remarks: remarks ?? null,
+      p_operation_id: operationId ?? null,
     });
 
     if (error) {
@@ -50,13 +52,15 @@ export class InventoryRepository {
     productId: string,
     quantity: number,
     transactionType: string,
-    remarks?: string
+    remarks?: string,
+    operationId?: string
   ): Promise<void> {
     const { error } = await supabase.rpc("stock_out", {
       p_product_id: productId,
       p_quantity: quantity,
       p_transaction_type: transactionType,
       p_remarks: remarks ?? null,
+      p_operation_id: operationId ?? null,
     });
 
     if (error) {

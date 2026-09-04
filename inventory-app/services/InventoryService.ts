@@ -34,9 +34,11 @@ export class InventoryService {
       throw new Error("Invalid quantity. Must be a positive integer.");
     }
 
+    const operationId = generateId("op");
+
     if (!(await getIsOnline())) {
       await this.enqueue({
-        id: generateId("op"),
+        id: operationId,
         type: "STOCK_IN",
         productId,
         quantity,
@@ -47,8 +49,7 @@ export class InventoryService {
       return;
     }
 
-    // RPC handles: validate product exists, update stock, insert transaction (atomic)
-    await inventoryRepository.stockIn(productId, quantity, remarks);
+    await inventoryRepository.stockIn(productId, quantity, remarks, operationId);
 
     void notificationService.presentLocalNotification(
       "Stock received",
@@ -79,9 +80,11 @@ export class InventoryService {
       );
     }
 
+    const operationId = generateId("op");
+
     if (!(await getIsOnline())) {
       await this.enqueue({
-        id: generateId("op"),
+        id: operationId,
         type: "STOCK_OUT",
         productId,
         quantity,
@@ -93,9 +96,13 @@ export class InventoryService {
       return;
     }
 
-    // RPC handles: validate product exists, check stock sufficiency,
-    // update stock, insert transaction (atomic)
-    await inventoryRepository.stockOut(productId, quantity, reason, remarks);
+    await inventoryRepository.stockOut(
+      productId,
+      quantity,
+      reason,
+      remarks,
+      operationId
+    );
 
     void notificationService.presentLocalNotification(
       "Stock removed",
