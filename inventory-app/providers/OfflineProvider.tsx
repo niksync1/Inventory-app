@@ -3,6 +3,7 @@ import NetInfo from "@react-native-community/netinfo";
 import { useOfflineStore } from "../store/offlineStore";
 import { useAuthStore } from "../store/authStore";
 import { syncService } from "../services/SyncService";
+import { productService } from "../services/productService";
 
 interface Props {
   children: ReactNode;
@@ -10,7 +11,8 @@ interface Props {
 
 /**
  * Monitors network state and drives the offline sync pipeline for the active
- * authenticated user only.
+ * authenticated user only. When online, it also refreshes the user's local
+ * product catalogue for offline lookup.
  */
 export default function OfflineProvider({ children }: Props) {
   const userId = useAuthStore((state) => state.user?.id ?? null);
@@ -38,6 +40,15 @@ export default function OfflineProvider({ children }: Props) {
       }
     };
 
+    const handleOnline = async () => {
+      await syncService.syncQueuedOperations();
+      try {
+        await productService.refreshOfflineCache();
+      } catch (err) {
+        console.warn("Failed to refresh offline product catalogue:", err);
+      }
+    };
+
     void init();
 
     const unsubscribe = NetInfo.addEventListener((state) => {
@@ -52,7 +63,7 @@ export default function OfflineProvider({ children }: Props) {
       const reconnected = wasOnline.current === false && online;
 
       if (userId && (firstOnlineSnapshot || reconnected)) {
-        void syncService.syncQueuedOperations();
+        void handleOnline();
       }
 
       wasOnline.current = online;
