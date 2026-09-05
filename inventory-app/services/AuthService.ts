@@ -17,7 +17,10 @@ export class AuthService {
   }
 
   async signOut() {
-    const { error } = await supabase.auth.signOut();
+    // Only end the current device session. This avoids waiting on a global
+    // sign-out across all sessions and lets the app return to the sign-in
+    // screen immediately while leaving other devices signed in.
+    const { error } = await supabase.auth.signOut({ scope: "local" });
 
     if (error) {
       throw error;

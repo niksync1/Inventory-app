@@ -7,7 +7,7 @@ on:
       - ".github/workflows/mobile-ci.yml"
   push:
     branches:
-      - product-hardening
+      - offline-support
     paths:
       - "inventory-app/**"
       - ".github/workflows/mobile-ci.yml"
