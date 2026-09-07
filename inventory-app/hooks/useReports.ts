@@ -3,9 +3,22 @@ import { reportService } from "../services/ReportService";
 import { STALE_TIMES } from "../utils/constants";
 import { ReportFilter } from "../types/report";
 
+function reportFilterKey(filter: ReportFilter) {
+  return [
+    filter.productId ?? null,
+    filter.from?.slice(0, 10) ?? null,
+    filter.to?.slice(0, 10) ?? null,
+  ] as const;
+}
+
 export function useReport(filter: ReportFilter = {}, transactionLimit = 200) {
   return useQuery({
-    queryKey: ["report", "inventory", transactionLimit, filter],
+    queryKey: [
+      "report",
+      "inventory",
+      transactionLimit,
+      ...reportFilterKey(filter),
+    ],
     queryFn: () => reportService.getReport(filter, transactionLimit),
     staleTime: STALE_TIMES.INVENTORY,
   });

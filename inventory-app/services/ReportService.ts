@@ -57,10 +57,14 @@ export class ReportService {
       const matching = recentTransactions.filter(
         (tx) => tx.transaction_type === type
       );
-      const totalUnits = matching.reduce(
+      const signedUnits = matching.reduce(
         (sum, tx) => sum + Number(tx.quantity || 0),
         0
       );
+      const totalUnits = STOCK_OUT_TYPES.includes(type)
+        ? Math.abs(signedUnits)
+        : signedUnits;
+
       return {
         type,
         count: matching.length,
