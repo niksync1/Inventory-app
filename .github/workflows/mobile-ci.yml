@@ -7,7 +7,7 @@ on:
       - ".github/workflows/mobile-ci.yml"
   push:
     branches:
-      - report-fix
+      - report-details-and-export
     paths:
       - "inventory-app/**"
       - ".github/workflows/mobile-ci.yml"
