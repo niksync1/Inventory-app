@@ -3,10 +3,7 @@ import { LOW_STOCK_THRESHOLD, TRANSACTION_TYPE_LABELS } from "../utils/constants
 import { MovementSummary, InventoryReport, ReportFilter } from "../types/report";
 import { TransactionType } from "../types/inventory";
 
-/** Transaction types that represent stock entering inventory. */
 const STOCK_IN_TYPES: TransactionType[] = ["RECEIPT", "RETURN"];
-
-/** Transaction types that represent stock leaving inventory. */
 const STOCK_OUT_TYPES: TransactionType[] = [
   "SALE",
   "DAMAGE",
@@ -24,19 +21,17 @@ const MOVEMENT_ORDER: TransactionType[] = [
 ];
 
 export class ReportService {
-  /** Product options (id + name) for the report filter dropdown. */
   async getProductOptions(): Promise<{ id: string; name: string }[]> {
     return reportRepository.getProductOptions();
   }
 
   async getReport(
     filter: ReportFilter = {},
-    transactionLimit = 200
+    _transactionLimit = 200
   ): Promise<InventoryReport> {
-    // Fetch the product snapshot and filtered transactions in parallel.
-    const [products, recentTransactions] = await Promise.all([
+    const [products, matchingTransactions] = await Promise.all([
       reportRepository.getAllProducts(),
-      reportRepository.getRecentTransactions(transactionLimit, filter),
+      reportRepository.getAllMatchingTransactions(filter),
     ]);
 
     const totalUnits = products.reduce(
@@ -54,21 +49,21 @@ export class ReportService {
       .sort((a, b) => Number(a.stock_quantity) - Number(b.stock_quantity));
 
     const movements: MovementSummary[] = MOVEMENT_ORDER.map((type) => {
-      const matching = recentTransactions.filter(
+      const matching = matchingTransactions.filter(
         (tx) => tx.transaction_type === type
       );
       const signedUnits = matching.reduce(
         (sum, tx) => sum + Number(tx.quantity || 0),
         0
       );
-      const totalUnits = STOCK_OUT_TYPES.includes(type)
+      const movementUnits = STOCK_OUT_TYPES.includes(type)
         ? Math.abs(signedUnits)
         : signedUnits;
 
       return {
         type,
         count: matching.length,
-        totalUnits,
+        totalUnits: movementUnits,
         label: TRANSACTION_TYPE_LABELS[type] ?? type,
       };
     });
@@ -81,18 +76,16 @@ export class ReportService {
       .filter((m) => STOCK_OUT_TYPES.includes(m.type as TransactionType))
       .reduce((sum, m) => sum + m.totalUnits, 0);
 
-    const totalMovements = recentTransactions.length;
-
     return {
       totalProducts: products.length,
       totalUnits,
       inventoryValue,
       lowStockCount: lowStockItems.length,
       lowStockItems,
-      recentTransactions,
+      recentTransactions: matchingTransactions,
       stockInUnits,
       stockOutUnits,
-      totalMovements,
+      totalMovements: matchingTransactions.length,
       movements,
     };
   }
