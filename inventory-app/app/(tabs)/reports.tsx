@@ -8,16 +8,15 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Header from "../../components/Header";
 import Loading from "../../components/Loading";
 import EmptyState from "../../components/EmptyState";
 import { useReport, useReportProductOptions } from "../../hooks/useReports";
-import { reportExportService } from "../../services/ReportExportService";
 import { formatCurrency } from "../../utils/format";
 import { MovementSummary, ReportFilter } from "../../types/report";
 import { InventoryTransaction } from "../../types/transaction";
@@ -37,7 +36,6 @@ const MOVEMENT_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 const OUTBOUND_TYPES = new Set(["SALE", "DAMAGE", "EXPIRED", "ADJUSTMENT"]);
 
 type RangeKey = "all" | "today" | "7d" | "30d" | "custom";
-type PickerTarget = "from" | "to" | null;
 
 const RANGE_OPTIONS: { key: RangeKey; label: string }[] = [
   { key: "all", label: "All time" },
@@ -95,6 +93,33 @@ function formatDateOnly(date: Date): string {
   });
 }
 
+function formatDateInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateInput(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
 function formatTransactionDate(value: string): string {
   return new Date(value).toLocaleString(undefined, {
     year: "numeric",
@@ -126,9 +151,10 @@ export default function ReportsScreen() {
   const [customOpen, setCustomOpen] = useState(false);
   const [customFrom, setCustomFrom] = useState(initialFrom);
   const [customTo, setCustomTo] = useState(today);
-  const [draftFrom, setDraftFrom] = useState(initialFrom);
-  const [draftTo, setDraftTo] = useState(today);
-  const [pickerTarget, setPickerTarget] = useState<PickerTarget>(null);
+  const [draftFromText, setDraftFromText] = useState(() =>
+    formatDateInput(initialFrom)
+  );
+  const [draftToText, setDraftToText] = useState(() => formatDateInput(today));
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_TRANSACTIONS);
   const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
 
@@ -157,9 +183,8 @@ export default function ReportsScreen() {
 
   function handleRangePress(nextRange: RangeKey) {
     if (nextRange === "custom") {
-      setDraftFrom(customFrom);
-      setDraftTo(customTo);
-      setPickerTarget(null);
+      setDraftFromText(formatDateInput(customFrom));
+      setDraftToText(formatDateInput(customTo));
       setCustomOpen(true);
       return;
     }
@@ -172,27 +197,31 @@ export default function ReportsScreen() {
   }
 
   function applyCustomRange() {
+    const draftFrom = parseDateInput(draftFromText);
+    const draftTo = parseDateInput(draftToText);
+
+    if (!draftFrom || !draftTo) {
+      Alert.alert(
+        "Invalid date",
+        "Enter both dates as YYYY-MM-DD, for example 2026-09-08."
+      );
+      return;
+    }
+
     if (draftFrom.getTime() > draftTo.getTime()) {
       Alert.alert("Invalid date range", "The start date must be on or before the end date.");
+      return;
+    }
+
+    if (draftTo.getTime() > endOfDay(today).getTime()) {
+      Alert.alert("Invalid date range", "The end date cannot be in the future.");
       return;
     }
 
     setCustomFrom(draftFrom);
     setCustomTo(draftTo);
     setRange("custom");
-    setPickerTarget(null);
     setCustomOpen(false);
-  }
-
-  function handlePickerChange(selected?: Date) {
-    if (!selected || !pickerTarget) {
-      setPickerTarget(null);
-      return;
-    }
-
-    if (pickerTarget === "from") setDraftFrom(selected);
-    else setDraftTo(selected);
-    setPickerTarget(null);
   }
 
   async function handleExport(type: "csv" | "pdf") {
@@ -200,6 +229,9 @@ export default function ReportsScreen() {
 
     try {
       setExporting(type);
+      const { reportExportService } = await import(
+        "../../services/ReportExportService"
+      );
       const context = {
         report,
         filter,
@@ -209,7 +241,8 @@ export default function ReportsScreen() {
       if (type === "csv") await reportExportService.exportCsv(context);
       else await reportExportService.exportPdf(context);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "The report could not be exported.";
+      const message =
+        error instanceof Error ? error.message : "The report could not be exported.";
       Alert.alert("Export failed", message);
     } finally {
       setExporting(null);
@@ -236,7 +269,11 @@ export default function ReportsScreen() {
       <Header title="Reports" />
 
       <View style={styles.filterBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rangeRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.rangeRow}
+        >
           {RANGE_OPTIONS.map((option) => {
             const active = range === option.key;
             return (
@@ -281,19 +318,33 @@ export default function ReportsScreen() {
             </Text>
           </View>
           <View style={styles.exportRow}>
-            <Pressable style={styles.exportButton} onPress={() => handleExport("csv")} disabled={!!exporting}>
+            <Pressable
+              style={styles.exportButton}
+              onPress={() => handleExport("csv")}
+              disabled={!!exporting}
+            >
               <Ionicons name="document-text-outline" size={16} color="#2563eb" />
-              <Text style={styles.exportButtonText}>{exporting === "csv" ? "CSV…" : "CSV"}</Text>
+              <Text style={styles.exportButtonText}>
+                {exporting === "csv" ? "CSV…" : "CSV"}
+              </Text>
             </Pressable>
-            <Pressable style={styles.exportButton} onPress={() => handleExport("pdf")} disabled={!!exporting}>
+            <Pressable
+              style={styles.exportButton}
+              onPress={() => handleExport("pdf")}
+              disabled={!!exporting}
+            >
               <Ionicons name="document-outline" size={16} color="#2563eb" />
-              <Text style={styles.exportButtonText}>{exporting === "pdf" ? "PDF…" : "PDF"}</Text>
+              <Text style={styles.exportButtonText}>
+                {exporting === "pdf" ? "PDF…" : "PDF"}
+              </Text>
             </Pressable>
           </View>
         </View>
 
         <Text style={styles.sectionTitle}>Inventory Overview</Text>
-        <Text style={styles.sectionNote}>Current stock snapshot; date filters apply to movement activity below.</Text>
+        <Text style={styles.sectionNote}>
+          Current stock snapshot; date filters apply to movement activity below.
+        </Text>
         <View style={styles.statGrid}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{report.totalProducts}</Text>
@@ -346,7 +397,11 @@ export default function ReportsScreen() {
                   <View key={movement.type}>
                     {index > 0 ? <View style={styles.divider} /> : null}
                     <View style={styles.movementRow}>
-                      <Ionicons name={MOVEMENT_ICONS[movement.type] ?? "ellipse"} size={18} color="#475569" />
+                      <Ionicons
+                        name={MOVEMENT_ICONS[movement.type] ?? "ellipse"}
+                        size={18}
+                        color="#475569"
+                      />
                       <Text style={styles.movementLabel}>{movement.label}</Text>
                       <Text style={styles.movementCount}>{movement.count} txns</Text>
                       <Text style={styles.movementUnits}>{movement.totalUnits} units</Text>
@@ -360,7 +415,9 @@ export default function ReportsScreen() {
         <View style={styles.transactionSectionHeader}>
           <View>
             <Text style={styles.sectionTitle}>Transaction Details</Text>
-            <Text style={styles.sectionNote}>Line-by-line movements for the active report filters.</Text>
+            <Text style={styles.sectionNote}>
+              Line-by-line movements for the active report filters.
+            </Text>
           </View>
           <Text style={styles.transactionTotal}>{report.totalMovements}</Text>
         </View>
@@ -369,29 +426,46 @@ export default function ReportsScreen() {
           <View style={styles.transactionList}>
             {visibleTransactions.map((tx) => {
               const outbound = OUTBOUND_TYPES.has(tx.transaction_type);
-              const signedQuantity = outbound ? -Math.abs(Number(tx.quantity)) : Math.abs(Number(tx.quantity));
+              const signedQuantity = outbound
+                ? -Math.abs(Number(tx.quantity))
+                : Math.abs(Number(tx.quantity));
               return (
                 <View key={tx.id} style={styles.transactionRow}>
                   <View style={styles.transactionTopRow}>
                     <View style={styles.transactionMain}>
-                      <Text style={styles.transactionProduct} numberOfLines={1}>{productNameFor(tx)}</Text>
-                      <Text style={styles.transactionDate}>{formatTransactionDate(tx.created_at)}</Text>
+                      <Text style={styles.transactionProduct} numberOfLines={1}>
+                        {productNameFor(tx)}
+                      </Text>
+                      <Text style={styles.transactionDate}>
+                        {formatTransactionDate(tx.created_at)}
+                      </Text>
                     </View>
-                    <Text style={[styles.transactionQuantity, outbound ? styles.quantityOut : styles.quantityIn]}>
-                      {signedQuantity > 0 ? "+" : ""}{signedQuantity}
+                    <Text
+                      style={[
+                        styles.transactionQuantity,
+                        outbound ? styles.quantityOut : styles.quantityIn,
+                      ]}
+                    >
+                      {signedQuantity > 0 ? "+" : ""}
+                      {signedQuantity}
                     </Text>
                   </View>
                   <View style={styles.transactionMetaRow}>
                     <Text style={styles.transactionType}>{tx.transaction_type}</Text>
                     <Text style={styles.transactionMeta}>By {createdByFor(tx)}</Text>
                   </View>
-                  {tx.remarks ? <Text style={styles.transactionRemarks}>{tx.remarks}</Text> : null}
+                  {tx.remarks ? (
+                    <Text style={styles.transactionRemarks}>{tx.remarks}</Text>
+                  ) : null}
                 </View>
               );
             })}
 
             {hasMoreTransactions ? (
-              <Pressable style={styles.loadMoreButton} onPress={() => setVisibleCount((count) => count + LOAD_MORE_COUNT)}>
+              <Pressable
+                style={styles.loadMoreButton}
+                onPress={() => setVisibleCount((count) => count + LOAD_MORE_COUNT)}
+              >
                 <Text style={styles.loadMoreText}>
                   Load more ({report.recentTransactions.length - visibleTransactions.length} remaining)
                 </Text>
@@ -399,7 +473,11 @@ export default function ReportsScreen() {
             ) : null}
           </View>
         ) : (
-          <EmptyState icon="receipt-outline" title="No transactions" message="No stock movements match the selected report filters." />
+          <EmptyState
+            icon="receipt-outline"
+            title="No transactions"
+            message="No stock movements match the selected report filters."
+          />
         )}
 
         <Text style={styles.sectionTitle}>Low Stock</Text>
@@ -409,22 +487,37 @@ export default function ReportsScreen() {
             <Pressable
               key={item.id}
               style={styles.lowStockRow}
-              onPress={() => router.push({ pathname: "/product/[id]", params: { id: item.id } })}
+              onPress={() =>
+                router.push({ pathname: "/product/[id]", params: { id: item.id } })
+              }
             >
               <View style={styles.lowStockInfo}>
-                <Text style={styles.lowStockName} numberOfLines={1}>{item.name}</Text>
-                <Text style={styles.lowStockMeta}>{formatCurrency(item.price)} · {item.id.slice(0, 8)}</Text>
+                <Text style={styles.lowStockName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={styles.lowStockMeta}>
+                  {formatCurrency(item.price)} · {item.id.slice(0, 8)}
+                </Text>
               </View>
               <Text style={styles.lowStockBadge}>{item.stock_quantity} left</Text>
               <Ionicons name="chevron-forward" size={18} color="#94a3b8" />
             </Pressable>
           ))
         ) : (
-          <EmptyState icon="checkmark-circle-outline" title="No low-stock items" message="All products are above the alert threshold." />
+          <EmptyState
+            icon="checkmark-circle-outline"
+            title="No low-stock items"
+            message="All products are above the alert threshold."
+          />
         )}
       </ScrollView>
 
-      <Modal visible={productOpen} animationType="slide" transparent onRequestClose={() => setProductOpen(false)}>
+      <Modal
+        visible={productOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setProductOpen(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
@@ -434,7 +527,10 @@ export default function ReportsScreen() {
               </Pressable>
             </View>
 
-            <Pressable style={styles.productOptionRow} onPress={() => handleSelectProduct(undefined)}>
+            <Pressable
+              style={styles.productOptionRow}
+              onPress={() => handleSelectProduct(undefined)}
+            >
               <Text style={styles.productOptionName}>All products</Text>
               {!productId ? <Ionicons name="checkmark" size={18} color="#2563eb" /> : null}
             </Pressable>
@@ -443,9 +539,16 @@ export default function ReportsScreen() {
               data={productOptions ?? []}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
-                <Pressable style={styles.productOptionRow} onPress={() => handleSelectProduct(item.id)}>
-                  <Text style={styles.productOptionName} numberOfLines={1}>{item.name}</Text>
-                  {productId === item.id ? <Ionicons name="checkmark" size={18} color="#2563eb" /> : null}
+                <Pressable
+                  style={styles.productOptionRow}
+                  onPress={() => handleSelectProduct(item.id)}
+                >
+                  <Text style={styles.productOptionName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  {productId === item.id ? (
+                    <Ionicons name="checkmark" size={18} color="#2563eb" />
+                  ) : null}
                 </Pressable>
               )}
             />
@@ -453,7 +556,12 @@ export default function ReportsScreen() {
         </View>
       </Modal>
 
-      <Modal visible={customOpen} animationType="fade" transparent onRequestClose={() => setCustomOpen(false)}>
+      <Modal
+        visible={customOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setCustomOpen(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.dateModalCard}>
             <View style={styles.modalHeader}>
@@ -464,26 +572,35 @@ export default function ReportsScreen() {
             </View>
 
             <Text style={styles.dateFieldLabel}>From</Text>
-            <Pressable style={styles.dateField} onPress={() => setPickerTarget("from")}>
+            <View style={styles.dateField}>
               <Ionicons name="calendar-outline" size={18} color="#2563eb" />
-              <Text style={styles.dateFieldText}>{formatDateOnly(draftFrom)}</Text>
-            </Pressable>
+              <TextInput
+                style={styles.dateFieldInput}
+                value={draftFromText}
+                onChangeText={setDraftFromText}
+                placeholder="YYYY-MM-DD"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="numbers-and-punctuation"
+              />
+            </View>
 
             <Text style={styles.dateFieldLabel}>To</Text>
-            <Pressable style={styles.dateField} onPress={() => setPickerTarget("to")}>
+            <View style={styles.dateField}>
               <Ionicons name="calendar-outline" size={18} color="#2563eb" />
-              <Text style={styles.dateFieldText}>{formatDateOnly(draftTo)}</Text>
-            </Pressable>
-
-            {pickerTarget ? (
-              <DateTimePicker
-                value={pickerTarget === "from" ? draftFrom : draftTo}
-                mode="date"
-                maximumDate={pickerTarget === "from" ? draftTo : today}
-                minimumDate={pickerTarget === "to" ? draftFrom : undefined}
-                onChange={(_event, selectedDate) => handlePickerChange(selectedDate)}
+              <TextInput
+                style={styles.dateFieldInput}
+                value={draftToText}
+                onChangeText={setDraftToText}
+                placeholder="YYYY-MM-DD"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="numbers-and-punctuation"
               />
-            ) : null}
+            </View>
+            <Text style={styles.dateHint}>
+              Use YYYY-MM-DD. The end date cannot be in the future.
+            </Text>
 
             <View style={styles.dateActions}>
               <Pressable style={styles.secondaryButton} onPress={() => setCustomOpen(false)}>
@@ -506,34 +623,102 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 40 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24 },
   errorTitle: { fontSize: 18, fontWeight: "700", color: "#0f172a", marginTop: 12 },
-  errorMessage: { fontSize: 14, color: "#64748b", marginTop: 4, marginBottom: 16, textAlign: "center" },
-  retryButton: { backgroundColor: "#2563eb", borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20 },
+  errorMessage: {
+    fontSize: 14,
+    color: "#64748b",
+    marginTop: 4,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  retryButton: {
+    backgroundColor: "#2563eb",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
   retryButtonText: { color: "#fff", fontWeight: "600", fontSize: 15 },
   filterBar: { paddingHorizontal: 16, paddingBottom: 12 },
   rangeRow: { gap: 8, paddingRight: 16, paddingBottom: 8 },
-  rangeChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, backgroundColor: "#e2e8f0" },
+  rangeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: "#e2e8f0",
+  },
   rangeChipActive: { backgroundColor: "#2563eb" },
   rangeChipText: { color: "#475569", fontSize: 13, fontWeight: "600" },
   rangeChipTextActive: { color: "#fff" },
   customRangeLabel: { fontSize: 12, color: "#64748b", marginBottom: 8 },
-  productFilter: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#fff", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: "#e2e8f0" },
+  productFilter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
   productFilterText: { flex: 1, color: "#0f172a", fontSize: 14, fontWeight: "600" },
-  reportHeadingRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 18 },
+  reportHeadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 18,
+  },
   reportHeadingText: { flex: 1 },
   reportTitle: { fontSize: 20, fontWeight: "800", color: "#0f172a" },
   reportScope: { fontSize: 12, color: "#64748b", marginTop: 3 },
   exportRow: { flexDirection: "row", gap: 8 },
-  exportButton: { flexDirection: "row", alignItems: "center", gap: 5, borderWidth: 1, borderColor: "#bfdbfe", backgroundColor: "#eff6ff", borderRadius: 9, paddingHorizontal: 10, paddingVertical: 8 },
+  exportButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    backgroundColor: "#eff6ff",
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   exportButtonText: { fontSize: 12, fontWeight: "700", color: "#2563eb" },
-  sectionTitle: { fontSize: 14, fontWeight: "700", color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 8, marginBottom: 6 },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 8,
+    marginBottom: 6,
+  },
   sectionNote: { fontSize: 12, color: "#94a3b8", marginBottom: 10 },
   statGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
-  statCard: { width: "48%", backgroundColor: "#fff", borderRadius: 14, padding: 16, marginBottom: 12, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 6, elevation: 1 },
+  statCard: {
+    width: "48%",
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
+  },
   statCardWarn: { borderWidth: 1, borderColor: "#fecaca" },
   statValue: { fontSize: 22, fontWeight: "800", color: "#0f172a", marginBottom: 4 },
   statValueWarn: { color: "#dc2626" },
   statLabel: { fontSize: 13, color: "#64748b" },
-  card: { backgroundColor: "#fff", borderRadius: 14, padding: 16, marginBottom: 16, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 6, elevation: 1 },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
+  },
   activityRow: { flexDirection: "row", alignItems: "center" },
   activityLabel: { flex: 1, fontSize: 15, fontWeight: "600", color: "#0f172a", marginLeft: 10 },
   activityValue: { fontSize: 15, fontWeight: "700", color: "#475569" },
@@ -542,10 +727,22 @@ const styles = StyleSheet.create({
   movementLabel: { flex: 1, fontSize: 14, fontWeight: "500", color: "#0f172a", marginLeft: 10 },
   movementCount: { fontSize: 13, color: "#64748b", marginRight: 12 },
   movementUnits: { fontSize: 13, fontWeight: "700", color: "#2563eb", minWidth: 70, textAlign: "right" },
-  transactionSectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 2 },
+  transactionSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginTop: 2,
+  },
   transactionTotal: { fontSize: 14, fontWeight: "800", color: "#2563eb", marginBottom: 10 },
   transactionList: { marginBottom: 18 },
-  transactionRow: { backgroundColor: "#fff", borderRadius: 12, padding: 13, marginBottom: 9, borderWidth: 1, borderColor: "#e2e8f0" },
+  transactionRow: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 13,
+    marginBottom: 9,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
   transactionTopRow: { flexDirection: "row", alignItems: "flex-start" },
   transactionMain: { flex: 1, marginRight: 12 },
   transactionProduct: { fontSize: 14, fontWeight: "700", color: "#0f172a" },
@@ -554,29 +751,122 @@ const styles = StyleSheet.create({
   quantityIn: { color: "#16a34a" },
   quantityOut: { color: "#dc2626" },
   transactionMetaRow: { flexDirection: "row", alignItems: "center", marginTop: 9, gap: 8 },
-  transactionType: { backgroundColor: "#f1f5f9", color: "#475569", borderRadius: 999, overflow: "hidden", paddingHorizontal: 8, paddingVertical: 3, fontSize: 10, fontWeight: "700" },
+  transactionType: {
+    backgroundColor: "#f1f5f9",
+    color: "#475569",
+    borderRadius: 999,
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    fontSize: 10,
+    fontWeight: "700",
+  },
   transactionMeta: { flex: 1, fontSize: 11, color: "#64748b" },
   transactionRemarks: { fontSize: 12, color: "#475569", marginTop: 8 },
-  loadMoreButton: { alignItems: "center", paddingVertical: 12, borderRadius: 10, backgroundColor: "#eff6ff" },
+  loadMoreButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: "#eff6ff",
+  },
   loadMoreText: { color: "#2563eb", fontWeight: "700", fontSize: 13 },
-  lowStockRow: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 12, padding: 14, marginBottom: 10, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 6, elevation: 1 },
+  lowStockRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
+  },
   lowStockInfo: { flex: 1, marginRight: 8 },
   lowStockName: { fontSize: 15, fontWeight: "700", color: "#0f172a" },
   lowStockMeta: { fontSize: 12, color: "#64748b", marginTop: 2 },
-  lowStockBadge: { backgroundColor: "#fee2e2", color: "#dc2626", fontSize: 12, fontWeight: "700", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, overflow: "hidden", marginRight: 6 },
-  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(15,23,42,0.45)" },
-  modalSheet: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "70%", padding: 16 },
-  dateModalCard: { backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 18 },
+  lowStockBadge: {
+    backgroundColor: "#fee2e2",
+    color: "#dc2626",
+    fontSize: 12,
+    fontWeight: "700",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    overflow: "hidden",
+    marginRight: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(15,23,42,0.45)",
+  },
+  modalSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "70%",
+    padding: 16,
+  },
+  dateModalCard: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 18,
+  },
   modalHeader: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
   modalTitle: { flex: 1, fontSize: 18, fontWeight: "800", color: "#0f172a" },
-  productOptionRow: { flexDirection: "row", alignItems: "center", paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
+  productOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+  },
   productOptionName: { flex: 1, fontSize: 14, color: "#0f172a" },
-  dateFieldLabel: { fontSize: 12, fontWeight: "700", color: "#64748b", marginTop: 8, marginBottom: 5 },
-  dateField: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: "#cbd5e1", borderRadius: 10, padding: 12 },
-  dateFieldText: { fontSize: 14, fontWeight: "600", color: "#0f172a" },
-  dateActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 18 },
-  secondaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 9, borderWidth: 1, borderColor: "#cbd5e1" },
+  dateFieldLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#64748b",
+    marginTop: 8,
+    marginBottom: 5,
+  },
+  dateField: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 10,
+    padding: 12,
+  },
+  dateFieldInput: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0f172a",
+    paddingVertical: 0,
+  },
+  dateHint: { fontSize: 11, color: "#94a3b8", marginTop: 8 },
+  dateActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 18,
+  },
+  secondaryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+  },
   secondaryButtonText: { color: "#475569", fontWeight: "700" },
-  primaryButton: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 9, backgroundColor: "#2563eb" },
+  primaryButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 9,
+    backgroundColor: "#2563eb",
+  },
   primaryButtonText: { color: "#fff", fontWeight: "700" },
 });
