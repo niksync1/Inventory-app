@@ -6,6 +6,7 @@ export interface InventoryTransaction {
   quantity: number;
   transaction_type: TransactionType;
   remarks?: string;
+  operation_id?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
