@@ -13,7 +13,7 @@ on:
       - ".github/workflows/mobile-ci.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   typecheck:
@@ -32,6 +32,21 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: inventory-app/package-lock.json
+
+      - name: Refresh package lock
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Commit refreshed package lock
+        working-directory: .
+        run: |
+          if git diff --quiet -- inventory-app/package-lock.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add inventory-app/package-lock.json
+          git commit -m "deps: sync report export lockfile"
+          git push origin HEAD:report-details-and-export
 
       - name: Install dependencies
         run: npm ci
